@@ -1,0 +1,43 @@
+app:
+  name: Argus Awaaz QA
+  version: 0.1.0
+  description: Multilingual support-call QA backend with adaptive dataset workflows.
+  api_prefix: /api
+  environment_env: APP_ENVIRONMENT
+  default_environment: development
+
+database:
+  url_env: DATABASE_URL
+  default_url: postgresql+asyncpg://argus:argus@localhost:5432/argus
+
+livekit:
+  url_env: LIVEKIT_URL
+  api_key_env: LIVEKIT_API_KEY
+  api_secret_env: LIVEKIT_API_SECRET
+  default_url: ws://localhost:7880
+  room_prefix: argus-awaaz
+  session_timeout_seconds: 900
+
+adaption:
+  api_key_env: ADAPTION_API_KEY
+  base_url_env: ADAPTION_BASE_URL
+  default_base_url: ""
+  export_dir: artifacts/datasets
+
+workflow:
+  supported_languages:
+    - Hinglish
+    - Hindi
+    - Indian English
+  supported_domains:
+    - fintech_refund
+    - ecommerce_return
+    - telecom_billing
+  violation_labels:
+    - no_violation
+    - missed_escalation
+    - refund_dispute
+    - privacy_risk
+    - abusive_or_unsafe_response
+    - incomplete_resolution
+    - good_handling
