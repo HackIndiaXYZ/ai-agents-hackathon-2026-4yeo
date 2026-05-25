@@ -50,3 +50,50 @@ class QaResultRead(BaseModel):
     model_metadata: dict
 
     model_config = {"from_attributes": True}
+
+
+class ReviewerCorrectionCreate(BaseModel):
+    corrected_transcript: str | None = None
+    corrected_score: float | None = Field(default=None, ge=0, le=100)
+    corrected_violation_label: str | None = None
+    corrected_escalation_required: bool | None = None
+    corrected_coaching_note: str | None = None
+    reviewer_note: str | None = None
+    accepted: bool = True
+
+
+class ReviewerCorrectionRead(BaseModel):
+    id: str
+    qa_session_id: str
+    qa_result_id: str
+    dataset_row_id: str | None
+    original_result: dict
+    corrected_transcript: str | None
+    corrected_score: float | None
+    corrected_violation_label: str | None
+    corrected_escalation_required: bool | None
+    corrected_coaching_note: str | None
+    reviewer_note: str | None
+    accepted: bool
+
+    model_config = {"from_attributes": True}
+
+
+class DatasetRowRead(BaseModel):
+    id: str
+    source_type: str
+    qa_session_id: str | None
+    correction_id: str | None
+    language: str
+    domain: str
+    prompt: str
+    completion: str
+    context: str
+    chat_payload: dict
+    labels: dict
+    version: str
+    export_status: str
+    adaption_dataset_id: str | None
+    adaption_run_id: str | None
+
+    model_config = {"from_attributes": True}
