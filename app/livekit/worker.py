@@ -10,7 +10,7 @@ from app.livekit.backend_client import BackendClient, format_qa_result
 def run() -> None:
     try:
         from livekit import agents
-        from livekit.agents import Agent, AgentServer, AgentSession, inference, room_io
+        from livekit.agents import Agent, AgentServer, AgentSession, RunContext, function_tool, inference, room_io
     except ImportError as exc:
         raise RuntimeError("LiveKit Agents dependencies are not installed. Run `pip install -r requirements.txt`.") from exc
 
@@ -20,6 +20,7 @@ def run() -> None:
     class ArgusAgent(Agent):
         def __init__(self) -> None:
             super().__init__(instructions=settings.worker.instructions)
+            self.backend = BackendClient(settings.worker.api_base_url)
 
         async def on_user_turn_completed(self, turn_ctx: Any, new_message: Any) -> None:
             voice_session_id = _metadata_value(self, "voice_session_id")
@@ -27,12 +28,70 @@ def run() -> None:
             transcript = _message_text(new_message)
             if not voice_session_id or not transcript:
                 return
-            result = await BackendClient(settings.worker.api_base_url).submit_voice_transcript(
+            result = await self.backend.submit_voice_transcript(
                 voice_session_id=voice_session_id,
                 transcript=transcript,
                 language=language,
             )
             await self.session.say(format_qa_result(result))
+
+        @function_tool()
+        async def lookup_support_policy(self, context: RunContext, domain: str, risk_label: str = "", language: str = "Hinglish") -> dict:
+            """Look up QA policy controls for the active support domain.
+
+            Args:
+                domain: Support domain such as fintech_refund, ecommerce_return, or telecom_billing.
+                risk_label: Optional QA risk label such as privacy_risk or missed_escalation.
+                language: Conversation language or style.
+            """
+            return await self.backend.run_agent_tool(
+                tool_name="policy_lookup",
+                input_payload={"domain": domain, "risk_label": risk_label, "language": language},
+            )
+
+        @function_tool()
+        async def scan_support_risk(self, context: RunContext, transcript: str, domain: str, language: str = "Hinglish") -> dict:
+            """Scan a support transcript for QA risk, evidence, score, and escalation need.
+
+            Args:
+                transcript: Support-call transcript text.
+                domain: Support domain for policy context.
+                language: Conversation language or style.
+            """
+            return await self.backend.run_agent_tool(
+                tool_name="risk_scan",
+                input_payload={"transcript": transcript, "domain": domain, "language": language},
+            )
+
+        @function_tool()
+        async def build_escalation_plan(
+            self,
+            context: RunContext,
+            domain: str,
+            violation_label: str,
+            urgency: str = "medium",
+            final_score: float | None = None,
+            transcript: str = "",
+        ) -> dict:
+            """Build a human handoff plan for risky or low-scoring support interactions.
+
+            Args:
+                domain: Support domain for the case.
+                violation_label: QA risk label from the scan.
+                urgency: Customer urgency level.
+                final_score: Optional QA score.
+                transcript: Optional transcript excerpt.
+            """
+            return await self.backend.run_agent_tool(
+                tool_name="escalation_plan",
+                input_payload={
+                    "domain": domain,
+                    "violation_label": violation_label,
+                    "urgency": urgency,
+                    "final_score": final_score,
+                    "transcript": transcript,
+                },
+            )
 
     @server.rtc_session(agent_name=settings.livekit.agent_name)
     async def argus_awaaz_agent(ctx: agents.JobContext):
