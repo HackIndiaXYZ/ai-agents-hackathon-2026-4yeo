@@ -1,0 +1,50 @@
+services:
+  api:
+    build: .
+    image: ${ARGUS_IMAGE:-argus-awaaz:local}
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://argus:argus@postgres:5432/argus}
+      LIVEKIT_URL: ${LIVEKIT_URL:-ws://livekit:7880}
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-devkey}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-secret}
+      ADAPTION_API_KEY: ${ADAPTION_API_KEY:-}
+      ADAPTION_BASE_URL: ${ADAPTION_BASE_URL:-}
+    ports:
+      - "${API_PORT:-8000}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      livekit:
+        condition: service_started
+
+  postgres:
+    image: postgres:${POSTGRES_IMAGE_TAG:-16-alpine}
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-argus}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-argus}
+      POSTGRES_DB: ${POSTGRES_DB:-argus}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  livekit:
+    image: livekit/livekit-server:${LIVEKIT_IMAGE_TAG:-latest}
+    command: ["--config", "/etc/livekit/livekit.yaml"]
+    ports:
+      - "${LIVEKIT_HTTP_PORT:-7880}:7880"
+      - "${LIVEKIT_TCP_PORT:-7881}:7881"
+      - "${LIVEKIT_UDP_RANGE:-50000-50060}:50000-50060/udp"
+    volumes:
+      - ./config/livekit.dev.yaml:/etc/livekit/livekit.yaml:ro
+
+volumes:
+  postgres_data:
