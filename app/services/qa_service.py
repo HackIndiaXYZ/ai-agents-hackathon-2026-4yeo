@@ -71,6 +71,7 @@ def score_support_transcript(*, transcript: str, language: str, domain: str) -> 
         + language_clarity_score * 0.1,
         2,
     )
+    recommended_tool = "escalation_plan" if escalation_required else "policy_lookup"
 
     return QaDecision(
         final_score=final_score,
@@ -87,7 +88,20 @@ def score_support_transcript(*, transcript: str, language: str, domain: str) -> 
         evidence_spans=evidence,
         coaching_note=_coaching_note(violation_label),
         ideal_response=_ideal_response(violation_label, domain),
-        model_metadata={"scoring_mode": "deterministic_policy", "language": language, "domain": domain},
+        model_metadata={
+            "scoring_mode": "deterministic_policy",
+            "language": language,
+            "domain": domain,
+            "recommended_tool": recommended_tool,
+            "recommended_action": _recommended_action(violation_label, escalation_required),
+            "score_reason": _score_reason(
+                privacy_risk=privacy_risk,
+                escalation_cue=escalation_cue,
+                refund_dispute=refund_dispute,
+                angry_customer=angry_customer,
+            ),
+            "evidence_count": len(evidence),
+        },
     )
 
 
@@ -136,3 +150,30 @@ def _ideal_response(label: str, domain: str) -> str:
     if label == "incomplete_resolution":
         return "I understand the frustration. Let me confirm the issue once and then share the next action clearly."
     return f"This {domain.replace('_', ' ')} support interaction is clear, policy-aligned, and ready for closure."
+
+
+def _recommended_action(label: str, escalation_required: bool) -> str:
+    if label == "privacy_risk":
+        return "stop_sensitive_data_collection_and_escalate"
+    if escalation_required:
+        return "create_human_handoff"
+    if label == "refund_dispute":
+        return "verify_refund_status_and_share_timeline"
+    if label == "incomplete_resolution":
+        return "ask_clarifying_question_and_confirm_next_step"
+    return "accept_result"
+
+
+def _score_reason(*, privacy_risk: bool, escalation_cue: bool, refund_dispute: bool, angry_customer: bool) -> str:
+    reasons = []
+    if privacy_risk:
+        reasons.append("sensitive credential risk")
+    if escalation_cue:
+        reasons.append("explicit escalation cue")
+    if refund_dispute:
+        reasons.append("refund or payment dispute")
+    if angry_customer:
+        reasons.append("frustrated customer signal")
+    if not reasons:
+        return "No major risk signal was detected."
+    return "Detected " + ", ".join(reasons) + "."

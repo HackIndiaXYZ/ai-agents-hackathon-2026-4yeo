@@ -54,6 +54,9 @@ async def test_transcript_flow_creates_structured_qa_result(client):
     assert result["escalation_required"] is True
     assert result["urgency"] == "high"
     assert result["final_score"] < 80
+    assert result["model_metadata"]["recommended_tool"] == "escalation_plan"
+    assert result["model_metadata"]["recommended_action"] == "create_human_handoff"
+    assert "explicit escalation cue" in result["model_metadata"]["score_reason"]
 
     latest_response = client.get(f"/api/qa/sessions/{session_id}/result")
     assert latest_response.status_code == 200

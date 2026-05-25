@@ -148,6 +148,8 @@ def risk_scan(input_payload: dict[str, Any]) -> dict[str, Any]:
         "evidence_spans": decision.evidence_spans,
         "coaching_note": decision.coaching_note,
         "ideal_response": decision.ideal_response,
+        "recommended_action": decision.model_metadata["recommended_action"],
+        "score_reason": decision.model_metadata["score_reason"],
         "recommended_next_tool": next_tool,
     }
 
