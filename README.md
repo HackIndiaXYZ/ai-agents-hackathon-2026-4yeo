@@ -33,6 +33,15 @@ Or load it through the API:
 curl -X POST http://localhost:8000/api/datasets/seed/load
 ```
 
+Inspect and run backend agent tools:
+
+```bash
+curl http://localhost:8000/api/agent-tools
+curl -X POST http://localhost:8000/api/agent-tools/run \
+  -H "Content-Type: application/json" \
+  -d '{"tool_name":"risk_scan","input":{"domain":"fintech_refund","language":"Hinglish","transcript":"Customer asks for escalation after a refund delay."}}'
+```
+
 Run the backend golden-path smoke check after the API is up:
 
 ```bash
