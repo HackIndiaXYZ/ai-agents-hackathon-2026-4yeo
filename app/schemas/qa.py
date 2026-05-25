@@ -97,3 +97,24 @@ class DatasetRowRead(BaseModel):
     adaption_run_id: str | None
 
     model_config = {"from_attributes": True}
+
+
+class DatasetExportRequest(BaseModel):
+    format: str = "jsonl"
+    version: str | None = None
+
+
+class ExportArtifactRead(BaseModel):
+    id: str
+    artifact_type: str
+    path: str
+    row_count: int
+    metadata_json: dict
+
+    model_config = {"from_attributes": True}
+
+
+class DatasetExportResponse(BaseModel):
+    artifacts: list[ExportArtifactRead]
+    row_count: int
+    formats: list[str]
