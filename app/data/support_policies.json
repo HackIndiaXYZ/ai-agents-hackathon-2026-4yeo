@@ -1,0 +1,83 @@
+{
+  "default": {
+    "summary": "Support reviews must identify customer risk, avoid sensitive-data requests, give clear next actions, and route urgent issues to a human escalation path.",
+    "required_actions": [
+      "Acknowledge the customer's concern before asking for details.",
+      "Summarize the issue in one sentence.",
+      "Give a concrete next step and timeline when possible.",
+      "Escalate explicit escalation requests, regulatory threats, safety issues, and credential risks."
+    ],
+    "prohibited_actions": [
+      "Do not ask for OTP, PIN, password, CVV, full card number, or full account number.",
+      "Do not dismiss explicit escalation requests.",
+      "Do not promise refund approval without checking the case status.",
+      "Do not close a call without a clear next action."
+    ],
+    "escalation_triggers": [
+      "customer asks for manager, senior, legal, RBI, ombudsman, or formal complaint",
+      "agent requests sensitive credentials",
+      "customer is angry and issue remains unresolved",
+      "refund or payment dispute has no timeline"
+    ]
+  },
+  "fintech_refund": {
+    "summary": "Fintech refund QA focuses on disputed debits, failed payments, reversal timelines, complaint handling, and sensitive financial data safety.",
+    "required_actions": [
+      "Verify the transaction through approved non-sensitive identifiers.",
+      "Explain the refund or reversal status and expected timeline.",
+      "Create or reference a case ID when the customer needs follow-up.",
+      "Escalate regulatory language, repeated failed refunds, or explicit manager requests."
+    ],
+    "prohibited_actions": [
+      "Do not request OTP, PIN, password, CVV, full card number, or netbanking credentials.",
+      "Do not blame the customer's bank without checking transaction status.",
+      "Do not mark the case resolved if money is still debited and no timeline is shared."
+    ],
+    "escalation_triggers": [
+      "RBI, ombudsman, legal, fraud, chargeback, senior, manager",
+      "refund delay after promised timeline",
+      "failed payment with debited amount",
+      "credential request by the agent"
+    ]
+  },
+  "ecommerce_return": {
+    "summary": "Ecommerce return QA focuses on pickup status, replacement/refund timelines, return eligibility, and calm handling of repeated customer follow-ups.",
+    "required_actions": [
+      "Confirm order or return status through approved identifiers.",
+      "State whether pickup, replacement, or refund is the next step.",
+      "Give the next update timeline.",
+      "Escalate when the customer reports repeated missed pickups or explicit complaint intent."
+    ],
+    "prohibited_actions": [
+      "Do not request payment credentials or OTP.",
+      "Do not tell the customer only to wait when the SLA has passed.",
+      "Do not reject return concerns without explaining the policy reason."
+    ],
+    "escalation_triggers": [
+      "repeated missed pickup",
+      "refund after return not received",
+      "damaged or wrong item unresolved",
+      "customer asks for complaint or manager"
+    ]
+  },
+  "telecom_billing": {
+    "summary": "Telecom billing QA focuses on overcharge disputes, recharge failures, service impact, plan clarity, and complaint escalation.",
+    "required_actions": [
+      "Confirm billing period, plan, or recharge status through approved identifiers.",
+      "Explain the charge, adjustment, or refund path clearly.",
+      "Share the ticket or complaint timeline when billing impact continues.",
+      "Escalate repeat billing disputes, service outages, or formal complaint requests."
+    ],
+    "prohibited_actions": [
+      "Do not request OTP, PIN, password, or payment credentials.",
+      "Do not ignore service outage impact when billing is disputed.",
+      "Do not close with generic plan information if the customer reported an incorrect charge."
+    ],
+    "escalation_triggers": [
+      "wrong charge repeated across cycles",
+      "recharge failed but amount debited",
+      "service outage with billing dispute",
+      "customer asks for senior, complaint, or legal route"
+    ]
+  }
+}

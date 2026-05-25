@@ -109,6 +109,13 @@ class WorkerSettings(BaseModel):
         return os.getenv(self.tts_voice_env, self.default_tts_voice)
 
 
+class AgentToolSettings(BaseModel):
+    policy_path: str = "app/data/support_policies.json"
+    escalation_score_threshold: int = 65
+    high_urgency_labels: list[str] = Field(default_factory=list)
+    catalog_tags: list[str] = Field(default_factory=list)
+
+
 class Settings(BaseModel):
     app: AppSettings
     database: DatabaseSettings
@@ -116,6 +123,7 @@ class Settings(BaseModel):
     adaption: AdaptionSettings
     workflow: WorkflowSettings
     worker: WorkerSettings
+    agent_tools: AgentToolSettings
 
 
 def _read_yaml(path: Path) -> dict[str, Any]:
