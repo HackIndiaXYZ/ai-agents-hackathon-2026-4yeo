@@ -208,6 +208,16 @@ async def test_dataset_export_writes_jsonl_csv_and_mapping(client, tmp_path, mon
     rows_response = client.get("/api/datasets/rows")
     assert rows_response.json()[0]["export_status"] == "exported"
 
+    artifacts_response = client.get("/api/datasets/artifacts")
+    assert artifacts_response.status_code == 200
+    artifacts_list = artifacts_response.json()
+    assert len(artifacts_list) == 5
+
+    download_response = client.get(f"/api/datasets/artifacts/{artifacts['jsonl']['id']}/download")
+    assert download_response.status_code == 200
+    assert download_response.text.strip()
+    assert "missed_escalation" in download_response.text
+
 
 @pytest.mark.asyncio
 async def test_dataset_export_rejects_empty_dataset(client, tmp_path, monkeypatch):

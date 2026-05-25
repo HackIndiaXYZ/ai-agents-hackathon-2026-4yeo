@@ -47,6 +47,30 @@ class VoiceEventResponse(BaseModel):
     voice_state: dict
 
 
+class TranscriptTurnRead(BaseModel):
+    id: str
+    qa_session_id: str
+    voice_session_id: str | None
+    role: str
+    source: str
+    language: str
+    content: str
+    confidence: float | None
+    provider_metadata: dict
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class VoiceTimelineResponse(BaseModel):
+    voice_session: "VoiceSessionRead"
+    turns: list[TranscriptTurnRead]
+    latest_result: QaResultRead | None
+    event_counts: dict[str, int]
+    interruption_count: int
+    latest_metrics: dict
+
+
 class VoiceSessionRead(BaseModel):
     id: str
     qa_session_id: str | None

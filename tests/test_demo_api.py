@@ -65,3 +65,40 @@ async def test_unknown_demo_scenario_returns_not_found(client):
 
     assert response.status_code == 404
     assert response.json()["detail"] == "Demo scenario not found"
+
+
+@pytest.mark.asyncio
+async def test_demo_reset_requires_confirmation(client):
+    response = client.post("/api/demo/reset", json={"confirm": False})
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Demo reset requires confirm=true"
+
+
+@pytest.mark.asyncio
+async def test_demo_reset_clears_showcase_state(client):
+    run_response = client.post("/api/demo/scenarios/fintech-hinglish-refund-escalation/run")
+    session_id = run_response.json()["session"]["id"]
+    client.post(
+        f"/api/qa/sessions/{session_id}/corrections",
+        json={
+            "corrected_score": run_response.json()["result"]["final_score"],
+            "corrected_violation_label": run_response.json()["result"]["violation_label"],
+            "corrected_escalation_required": run_response.json()["result"]["escalation_required"],
+        },
+    )
+    seed_response = client.post("/api/datasets/seed/load")
+    assert seed_response.status_code == 200
+
+    reset_response = client.post("/api/demo/reset", json={"confirm": True})
+
+    assert reset_response.status_code == 200
+    counts = reset_response.json()["deleted_counts"]
+    assert counts["qa_sessions"] == 1
+    assert counts["qa_results"] == 1
+    assert counts["reviewer_corrections"] == 1
+    assert counts["dataset_rows"] == 51
+
+    rows_response = client.get("/api/datasets/rows")
+    assert rows_response.status_code == 200
+    assert rows_response.json() == []

@@ -5,9 +5,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
-from app.models.domain import QaSession, TranscriptTurn, VoiceSession
+from app.models.domain import QaResult, QaSession, TranscriptTurn, VoiceSession
 from app.schemas.qa import QaSessionCreate, TranscriptSubmit
-from app.schemas.voice import VoiceConnectRequest, VoiceConnectResponse, VoiceEventRequest, VoiceEventResponse
+from app.schemas.voice import VoiceConnectRequest, VoiceConnectResponse, VoiceEventRequest, VoiceEventResponse, VoiceTimelineResponse
 from app.services.session_service import create_qa_session, get_qa_session, submit_transcript
 
 
@@ -107,6 +107,28 @@ async def get_voice_session(db: AsyncSession, voice_session_id: str) -> VoiceSes
     return result.scalar_one_or_none()
 
 
+async def get_voice_timeline(db: AsyncSession, voice_session_id: str) -> VoiceTimelineResponse | None:
+    voice_session = await get_voice_session(db, voice_session_id)
+    if not voice_session:
+        return None
+    result = await db.execute(
+        select(TranscriptTurn)
+        .where(TranscriptTurn.voice_session_id == voice_session_id)
+        .order_by(TranscriptTurn.created_at, TranscriptTurn.id)
+    )
+    turns = list(result.scalars().all())
+    latest_result = await _timeline_latest_result(db, voice_session)
+    metadata = voice_session.metadata_json
+    return VoiceTimelineResponse(
+        voice_session=voice_session,
+        turns=turns,
+        latest_result=latest_result,
+        event_counts={str(key): int(value) for key, value in metadata.get("event_counts", {}).items()},
+        interruption_count=int(metadata.get("interruption_count", 0)),
+        latest_metrics=dict(metadata.get("latest_metrics", {})),
+    )
+
+
 async def _resolve_qa_session(db: AsyncSession, payload: VoiceConnectRequest) -> QaSession:
     if payload.qa_session_id:
         session = await get_qa_session(db, payload.qa_session_id)
@@ -122,6 +144,20 @@ async def _resolve_qa_session(db: AsyncSession, payload: VoiceConnectRequest) ->
             scenario_type="voice_session",
         ),
     )
+
+
+async def _timeline_latest_result(db: AsyncSession, voice_session: VoiceSession) -> QaResult | None:
+    result_id = voice_session.metadata_json.get("last_qa_result_id")
+    if result_id:
+        result = await db.get(QaResult, str(result_id))
+        if result:
+            return result
+    if voice_session.qa_session_id:
+        result = await db.execute(
+            select(QaResult).where(QaResult.qa_session_id == voice_session.qa_session_id).order_by(QaResult.created_at.desc()).limit(1)
+        )
+        return result.scalar_one_or_none()
+    return None
 
 
 async def _attach_voice_metadata(

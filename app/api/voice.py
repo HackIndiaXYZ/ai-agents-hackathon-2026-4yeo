@@ -2,8 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db_session
-from app.schemas.voice import VoiceConnectRequest, VoiceConnectResponse, VoiceEventRequest, VoiceEventResponse, VoiceSessionRead
-from app.services.voice_service import connect_voice_session, get_voice_session, submit_voice_event
+from app.schemas.voice import VoiceConnectRequest, VoiceConnectResponse, VoiceEventRequest, VoiceEventResponse, VoiceSessionRead, VoiceTimelineResponse
+from app.services.voice_service import connect_voice_session, get_voice_session, get_voice_timeline, submit_voice_event
 
 router = APIRouter(prefix="/voice", tags=["voice"])
 
@@ -31,3 +31,11 @@ async def read_voice_session(voice_session_id: str, db: AsyncSession = Depends(g
     if not session:
         raise HTTPException(status_code=404, detail="Voice session not found")
     return session
+
+
+@router.get("/sessions/{voice_session_id}/timeline", response_model=VoiceTimelineResponse)
+async def read_voice_timeline(voice_session_id: str, db: AsyncSession = Depends(get_db_session)):
+    timeline = await get_voice_timeline(db, voice_session_id)
+    if not timeline:
+        raise HTTPException(status_code=404, detail="Voice session not found")
+    return timeline
