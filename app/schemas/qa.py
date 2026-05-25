@@ -118,3 +118,9 @@ class DatasetExportResponse(BaseModel):
     artifacts: list[ExportArtifactRead]
     row_count: int
     formats: list[str]
+
+
+class SeedLoadResponse(BaseModel):
+    inserted: int
+    skipped: int
+    total: int
