@@ -233,6 +233,17 @@ textarea {
   word-break: break-word;
 }
 
+.audio-sink {
+  min-height: 42px;
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.audio-sink audio {
+  width: 100%;
+}
+
 .output:empty::before {
   content: "No output yet.";
   color: #8795a8;

@@ -166,6 +166,14 @@ async def test_voice_event_tracks_interruption_and_metrics(db_context, monkeypat
         assert voice_session.metadata_json["event_counts"]["interruption"] == 1
         assert voice_session.metadata_json["event_counts"]["metrics"] == 1
 
+    timeline_response = client.get(f"/api/voice/sessions/{voice_session_id}/timeline")
+    assert timeline_response.status_code == 200
+    timeline = timeline_response.json()
+    assert timeline["voice_session"]["id"] == voice_session_id
+    assert timeline["event_counts"]["interruption"] == 1
+    assert timeline["event_counts"]["metrics"] == 1
+    assert timeline["latest_metrics"]["total_latency"] == 0.94
+
 
 @pytest.mark.asyncio
 async def test_final_voice_event_requires_transcript(db_context, monkeypatch):
@@ -179,6 +187,41 @@ async def test_final_voice_event_requires_transcript(db_context, monkeypatch):
 
     assert response.status_code == 400
     assert response.json()["detail"] == "Transcript is required for transcript events"
+
+
+@pytest.mark.asyncio
+async def test_voice_timeline_includes_turns_and_latest_result(db_context, monkeypatch):
+    client, _ = db_context
+    monkeypatch.setenv("LIVEKIT_API_KEY", "devkey")
+    monkeypatch.setenv("LIVEKIT_API_SECRET", "test-secret-with-at-least-32-bytes")
+    connect_response = client.post("/api/voice/connect", json={"language": "Hinglish", "domain": "fintech_refund"})
+    voice_session_id = connect_response.json()["voice_session_id"]
+    client.post(
+        "/api/voice/events",
+        json={
+            "voice_session_id": voice_session_id,
+            "event_type": "partial_transcript",
+            "transcript": "Customer refund stuck hai",
+        },
+    )
+    client.post(
+        "/api/voice/events",
+        json={
+            "voice_session_id": voice_session_id,
+            "event_type": "final_transcript",
+            "transcript": "Customer refund stuck hai, please escalate this complaint.",
+        },
+    )
+
+    response = client.get(f"/api/voice/sessions/{voice_session_id}/timeline")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body["turns"]) == 2
+    assert {turn["source"] for turn in body["turns"]} == {"voice_partial", "voice"}
+    assert body["latest_result"]["violation_label"] == "missed_escalation"
+    assert body["event_counts"]["partial_transcript"] == 1
+    assert body["event_counts"]["final_transcript"] == 1
 
 
 @pytest.mark.asyncio

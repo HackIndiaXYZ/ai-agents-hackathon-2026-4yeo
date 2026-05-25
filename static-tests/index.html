@@ -145,10 +145,13 @@
             </div>
             <div class="actions">
               <button data-action="connectVoice">Connect</button>
+              <button data-action="joinLiveKitRoom">Join Room</button>
+              <button data-action="leaveLiveKitRoom">Leave Room</button>
               <button data-action="sendPartialVoice">Partial</button>
               <button data-action="sendFinalVoice" class="primary">Final</button>
               <button data-action="sendInterruption">Interruption</button>
               <button data-action="sendMetrics">Metrics</button>
+              <button data-action="loadVoiceTimeline">Timeline</button>
             </div>
           </div>
           <div class="grid two">
@@ -161,6 +164,11 @@
               <input id="voiceTranscript" value="Customer: refund stuck hai, please escalate this complaint." />
             </label>
           </div>
+          <label class="field">
+            <span>LiveKit browser SDK</span>
+            <input id="livekitSdkUrl" value="https://esm.sh/livekit-client@2.19.0" />
+          </label>
+          <div id="remoteAudio" class="audio-sink"></div>
           <pre id="voiceOut" class="output"></pre>
         </section>
 
@@ -190,6 +198,8 @@
               <button data-action="loadSeed">Load Seed</button>
               <button data-action="listRows">Rows</button>
               <button data-action="exportDataset" class="primary">Export Package</button>
+              <button data-action="listArtifacts">Artifacts</button>
+              <button data-action="downloadArtifact">Download Latest</button>
               <button data-action="datasetReadiness">Readiness Tool</button>
             </div>
           </div>
@@ -203,6 +213,7 @@
               <h3>Run Handoff</h3>
             </div>
             <div class="actions">
+              <button data-action="resetDemo">Reset Demo</button>
               <button data-action="startAdaption" class="primary">Start Run</button>
               <button data-action="refreshAdaption">Refresh Status</button>
               <button data-action="downloadAdaption">Download Result</button>

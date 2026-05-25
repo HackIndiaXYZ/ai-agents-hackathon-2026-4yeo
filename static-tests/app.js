@@ -2,6 +2,9 @@ const state = {
   qaSessionId: "",
   qaResult: null,
   voiceSessionId: "",
+  livekitToken: "",
+  livekitUrl: "",
+  livekitRoom: null,
   latestArtifactId: "",
   adaptionRunRecordId: "",
   latestScenario: null,
@@ -148,6 +151,8 @@ async function connectVoice() {
   });
   state.voiceSessionId = payload.voice_session_id;
   state.qaSessionId = payload.qa_session_id;
+  state.livekitToken = payload.token;
+  state.livekitUrl = payload.livekit_url;
   syncState();
   write("voiceOut", payload);
 }
@@ -205,6 +210,61 @@ async function sendMetrics() {
   });
 }
 
+async function loadVoiceTimeline() {
+  await ensureVoiceSession();
+  const payload = await request("GET", `/voice/sessions/${state.voiceSessionId}/timeline`);
+  write("voiceOut", payload);
+}
+
+async function joinLiveKitRoom() {
+  await ensureVoiceSession();
+  if (state.livekitRoom) {
+    await leaveLiveKitRoom();
+  }
+  const sdk = await import($("livekitSdkUrl").value);
+  const room = new sdk.Room();
+  const audioSink = $("remoteAudio");
+  audioSink.innerHTML = "";
+  room.on(sdk.RoomEvent.TrackSubscribed, (track) => {
+    if (track.kind === "audio") {
+      const element = track.attach();
+      element.autoplay = true;
+      audioSink.appendChild(element);
+    }
+  });
+  room.on(sdk.RoomEvent.Disconnected, () => {
+    log("LiveKit room disconnected");
+  });
+  await room.connect(state.livekitUrl, state.livekitToken);
+  if (typeof room.startAudio === "function") {
+    await room.startAudio();
+  }
+  if (typeof room.localParticipant.setMicrophoneEnabled === "function") {
+    await room.localParticipant.setMicrophoneEnabled(true);
+  } else if (typeof sdk.createLocalTracks === "function") {
+    const tracks = await sdk.createLocalTracks({ audio: true, video: false });
+    for (const track of tracks) {
+      await room.localParticipant.publishTrack(track);
+    }
+  }
+  state.livekitRoom = room;
+  write("voiceOut", {
+    connected: true,
+    roomName: room.name,
+    localParticipant: room.localParticipant.identity,
+    livekitUrl: state.livekitUrl,
+  });
+}
+
+async function leaveLiveKitRoom() {
+  if (state.livekitRoom) {
+    state.livekitRoom.disconnect();
+    state.livekitRoom = null;
+  }
+  $("remoteAudio").innerHTML = "";
+  write("voiceOut", { connected: false });
+}
+
 async function loadTools() {
   const payload = await request("GET", "/agent-tools");
   write("toolsOut", payload);
@@ -253,12 +313,32 @@ async function listRows() {
   write("datasetOut", { count: payload.length, rows: payload.slice(0, 8) });
 }
 
+async function listArtifacts() {
+  const payload = await request("GET", "/datasets/artifacts");
+  state.latestArtifactId = payload[0]?.id || state.latestArtifactId;
+  syncState();
+  write("datasetOut", { count: payload.length, artifacts: payload });
+}
+
 async function exportDataset() {
   const payload = await request("POST", "/datasets/export", { format: "all" });
   const jsonl = payload.artifacts.find((artifact) => artifact.artifact_type === "jsonl");
   state.latestArtifactId = jsonl ? jsonl.id : payload.artifacts[0]?.id || "";
   syncState();
   write("datasetOut", payload);
+}
+
+async function downloadArtifact() {
+  if (!state.latestArtifactId) {
+    await listArtifacts();
+  }
+  if (!state.latestArtifactId) {
+    throw new Error("No export artifact available.");
+  }
+  const url = `${apiBase()}/datasets/artifacts/${state.latestArtifactId}/download`;
+  window.open(url, "_blank", "noopener,noreferrer");
+  log("OPEN artifact download", { url });
+  write("datasetOut", { download_url: url });
 }
 
 async function datasetReadiness() {
@@ -275,6 +355,25 @@ async function startAdaption() {
     dataset_name: "argus-awaaz-static-test",
   });
   state.adaptionRunRecordId = payload.id;
+  write("adaptionOut", payload);
+}
+
+async function resetDemo() {
+  const payload = await request("POST", "/demo/reset", {
+    confirm: true,
+    include_seed_data: true,
+    include_exports: true,
+    include_voice_sessions: true,
+    include_adaption_runs: true,
+  });
+  state.qaSessionId = "";
+  state.qaResult = null;
+  state.voiceSessionId = "";
+  state.livekitToken = "";
+  state.livekitUrl = "";
+  state.latestArtifactId = "";
+  state.adaptionRunRecordId = "";
+  syncState();
   write("adaptionOut", payload);
 }
 
@@ -317,6 +416,7 @@ async function runGoldenPath() {
   }
   await loadSeed();
   await exportDataset();
+  await listArtifacts();
   await datasetReadiness();
   await analytics();
 }
@@ -331,10 +431,13 @@ const actions = {
   submitTranscript,
   createCorrection,
   connectVoice,
+  joinLiveKitRoom,
+  leaveLiveKitRoom,
   sendPartialVoice,
   sendFinalVoice,
   sendInterruption,
   sendMetrics,
+  loadVoiceTimeline,
   loadTools,
   runRiskScan,
   runEscalationPlan,
@@ -342,7 +445,10 @@ const actions = {
   loadSeed,
   listRows,
   exportDataset,
+  listArtifacts,
+  downloadArtifact,
   datasetReadiness,
+  resetDemo,
   startAdaption,
   refreshAdaption,
   downloadAdaption,

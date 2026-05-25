@@ -16,6 +16,15 @@ async def list_dataset_rows(db: AsyncSession) -> list[DatasetRow]:
     return list(result.scalars().all())
 
 
+async def list_export_artifacts(db: AsyncSession) -> list[ExportArtifact]:
+    result = await db.execute(select(ExportArtifact).order_by(desc(ExportArtifact.created_at)))
+    return list(result.scalars().all())
+
+
+async def get_export_artifact(db: AsyncSession, artifact_id: str) -> ExportArtifact | None:
+    return await db.get(ExportArtifact, artifact_id)
+
+
 async def export_dataset_rows(db: AsyncSession, payload: DatasetExportRequest) -> DatasetExportResponse:
     rows = await _dataset_rows_for_export(db, version=payload.version)
     if not rows:
