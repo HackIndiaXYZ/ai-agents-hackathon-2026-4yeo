@@ -21,6 +21,18 @@ Run tests:
 python -m pytest -q
 ```
 
+Load the synthetic showcase dataset after the database is migrated:
+
+```bash
+python scripts/load_seed_dataset.py
+```
+
+Or load it through the API:
+
+```bash
+curl -X POST http://localhost:8000/api/datasets/seed/load
+```
+
 Run the backend golden-path smoke check after the API is up:
 
 ```bash
