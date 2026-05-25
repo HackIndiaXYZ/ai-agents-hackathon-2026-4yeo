@@ -58,3 +58,15 @@ workflow:
     - abusive_or_unsafe_response
     - incomplete_resolution
     - good_handling
+
+agent_tools:
+  policy_path: app/data/support_policies.json
+  escalation_score_threshold: 65
+  high_urgency_labels:
+    - privacy_risk
+    - missed_escalation
+    - abusive_or_unsafe_response
+  catalog_tags:
+    - voice-agent
+    - qa-review
+    - adaptive-data

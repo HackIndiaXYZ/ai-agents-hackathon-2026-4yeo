@@ -14,6 +14,13 @@ class BackendClient:
             response.raise_for_status()
             return response.json()
 
+    async def run_agent_tool(self, *, tool_name: str, input_payload: dict) -> dict:
+        payload = {"tool_name": tool_name, "input": input_payload}
+        async with httpx.AsyncClient(timeout=30) as client:
+            response = await client.post(f"{self.api_base_url}/agent-tools/run", json=payload)
+            response.raise_for_status()
+            return response.json()["result"]
+
 
 def format_qa_result(result: dict) -> str:
     label = result.get("violation_label", "unknown")
