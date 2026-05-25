@@ -12,7 +12,8 @@ class BackendClient:
         async with httpx.AsyncClient(timeout=30) as client:
             response = await client.post(f"{self.api_base_url}/voice/events", json=payload)
             response.raise_for_status()
-            return response.json()
+            body = response.json()
+            return body.get("qa_result") or body
 
     async def run_agent_tool(self, *, tool_name: str, input_payload: dict) -> dict:
         payload = {"tool_name": tool_name, "input": input_payload}

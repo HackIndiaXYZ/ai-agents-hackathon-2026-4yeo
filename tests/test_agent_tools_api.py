@@ -73,6 +73,8 @@ async def test_risk_scan_and_escalation_plan_work_together(client):
     assert scan["violation_label"] == "privacy_risk"
     assert scan["escalation_required"] is True
     assert scan["recommended_next_tool"] == "escalation_plan"
+    assert scan["recommended_action"] == "stop_sensitive_data_collection_and_escalate"
+    assert "sensitive credential risk" in scan["score_reason"]
 
     plan_response = client.post(
         "/api/agent-tools/run",
