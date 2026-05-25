@@ -7,6 +7,7 @@ from app.api.datasets import router as datasets_router
 from app.api.demo import router as demo_router
 from app.api.health import router as health_router
 from app.api.qa import router as qa_router
+from app.api.voice import router as voice_router
 from app.core.config import get_settings
 
 
@@ -32,6 +33,7 @@ def create_app() -> FastAPI:
     app.include_router(adaption_router, prefix=settings.app.api_prefix)
     app.include_router(analytics_router, prefix=settings.app.api_prefix)
     app.include_router(demo_router, prefix=settings.app.api_prefix)
+    app.include_router(voice_router, prefix=settings.app.api_prefix)
     return app
 
 
