@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Argus Awaaz QA Backend Harness</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="shell">
+      <aside class="sidebar">
+        <div>
+          <p class="eyebrow">Static E2E Harness</p>
+          <h1>Argus Awaaz QA</h1>
+        </div>
+        <label class="field">
+          <span>API base</span>
+          <input id="apiBase" value="http://localhost:8000/api" />
+        </label>
+        <nav class="nav">
+          <a href="#system">System</a>
+          <a href="#demo">Demo</a>
+          <a href="#qa">QA</a>
+          <a href="#voice">Voice</a>
+          <a href="#tools">Tools</a>
+          <a href="#dataset">Dataset</a>
+          <a href="#adaption">Adaption</a>
+        </nav>
+      </aside>
+
+      <main>
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Backend services</p>
+            <h2>Service Test Console</h2>
+          </div>
+          <div class="actions">
+            <button id="runGoldenPath" class="primary">Run Golden Path</button>
+            <button id="clearLog">Clear Log</button>
+          </div>
+        </header>
+
+        <section class="status-grid" aria-label="runtime state">
+          <div class="metric">
+            <span>QA session</span>
+            <strong id="stateQaSession">None</strong>
+          </div>
+          <div class="metric">
+            <span>Voice session</span>
+            <strong id="stateVoiceSession">None</strong>
+          </div>
+          <div class="metric">
+            <span>Latest artifact</span>
+            <strong id="stateArtifact">None</strong>
+          </div>
+          <div class="metric">
+            <span>Last status</span>
+            <strong id="stateStatus">Idle</strong>
+          </div>
+        </section>
+
+        <section id="system" class="panel">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">System</p>
+              <h3>Health And Readiness</h3>
+            </div>
+            <div class="actions">
+              <button data-action="health">Health</button>
+              <button data-action="readiness">Readiness</button>
+              <button data-action="analytics">Analytics</button>
+            </div>
+          </div>
+          <pre id="systemOut" class="output"></pre>
+        </section>
+
+        <section id="demo" class="panel">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">Demo</p>
+              <h3>Scenario Runner</h3>
+            </div>
+            <div class="actions">
+              <button data-action="loadScenarios">Load Scenarios</button>
+              <button data-action="runScenario" class="primary">Run Scenario</button>
+            </div>
+          </div>
+          <div class="grid two">
+            <label class="field">
+              <span>Scenario</span>
+              <select id="scenarioId">
+                <option value="fintech-hinglish-refund-escalation">fintech-hinglish-refund-escalation</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Reviewer note</span>
+              <input id="reviewerNote" value="Static E2E accepted the backend QA result." />
+            </label>
+          </div>
+          <pre id="demoOut" class="output"></pre>
+        </section>
+
+        <section id="qa" class="panel">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">QA</p>
+              <h3>Transcript And Correction Flow</h3>
+            </div>
+            <div class="actions">
+              <button data-action="createQaSession">Create Session</button>
+              <button data-action="submitTranscript" class="primary">Submit Transcript</button>
+              <button data-action="createCorrection">Create Correction</button>
+            </div>
+          </div>
+          <div class="grid two">
+            <label class="field">
+              <span>Language</span>
+              <select id="qaLanguage">
+                <option>Hinglish</option>
+                <option>Hindi</option>
+                <option>Indian English</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Domain</span>
+              <select id="qaDomain">
+                <option>fintech_refund</option>
+                <option>ecommerce_return</option>
+                <option>telecom_billing</option>
+              </select>
+            </label>
+          </div>
+          <label class="field">
+            <span>Transcript</span>
+            <textarea id="qaTranscript">Customer: Mera refund stuck hai, please escalate this complaint to manager. Agent: Aap wait kar lijiye.</textarea>
+          </label>
+          <pre id="qaOut" class="output"></pre>
+        </section>
+
+        <section id="voice" class="panel">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">Voice</p>
+              <h3>Session Event Flow</h3>
+            </div>
+            <div class="actions">
+              <button data-action="connectVoice">Connect</button>
+              <button data-action="sendPartialVoice">Partial</button>
+              <button data-action="sendFinalVoice" class="primary">Final</button>
+              <button data-action="sendInterruption">Interruption</button>
+              <button data-action="sendMetrics">Metrics</button>
+            </div>
+          </div>
+          <div class="grid two">
+            <label class="field">
+              <span>Participant</span>
+              <input id="participantIdentity" value="static-reviewer" />
+            </label>
+            <label class="field">
+              <span>Voice transcript</span>
+              <input id="voiceTranscript" value="Customer: refund stuck hai, please escalate this complaint." />
+            </label>
+          </div>
+          <pre id="voiceOut" class="output"></pre>
+        </section>
+
+        <section id="tools" class="panel">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">Agent Tools</p>
+              <h3>Tool Runner</h3>
+            </div>
+            <div class="actions">
+              <button data-action="loadTools">Catalog</button>
+              <button data-action="runRiskScan" class="primary">Risk Scan</button>
+              <button data-action="runEscalationPlan">Escalation Plan</button>
+              <button data-action="runSessionSummary">Session Summary</button>
+            </div>
+          </div>
+          <pre id="toolsOut" class="output"></pre>
+        </section>
+
+        <section id="dataset" class="panel">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">Dataset</p>
+              <h3>Seed, Rows, Export</h3>
+            </div>
+            <div class="actions">
+              <button data-action="loadSeed">Load Seed</button>
+              <button data-action="listRows">Rows</button>
+              <button data-action="exportDataset" class="primary">Export Package</button>
+              <button data-action="datasetReadiness">Readiness Tool</button>
+            </div>
+          </div>
+          <pre id="datasetOut" class="output"></pre>
+        </section>
+
+        <section id="adaption" class="panel">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">Adaption</p>
+              <h3>Run Handoff</h3>
+            </div>
+            <div class="actions">
+              <button data-action="startAdaption" class="primary">Start Run</button>
+              <button data-action="refreshAdaption">Refresh Status</button>
+              <button data-action="downloadAdaption">Download Result</button>
+            </div>
+          </div>
+          <pre id="adaptionOut" class="output"></pre>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">Trace</p>
+              <h3>Request Log</h3>
+            </div>
+          </div>
+          <pre id="logOut" class="output log"></pre>
+        </section>
+      </main>
+    </div>
+    <script src="./app.js"></script>
+  </body>
+</html>

@@ -21,6 +21,12 @@ Run tests:
 python -m pytest -q
 ```
 
+Open the static backend E2E harness:
+
+```text
+static-tests/index.html
+```
+
 Load the synthetic showcase dataset after the database is migrated:
 
 ```bash
