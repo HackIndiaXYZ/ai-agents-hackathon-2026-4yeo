@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.models.domain import QaSession, TranscriptTurn, VoiceSession
 from app.schemas.qa import QaSessionCreate, TranscriptSubmit
-from app.schemas.voice import VoiceConnectRequest, VoiceConnectResponse, VoiceEventRequest
+from app.schemas.voice import VoiceConnectRequest, VoiceConnectResponse, VoiceEventRequest, VoiceEventResponse
 from app.services.session_service import create_qa_session, get_qa_session, submit_transcript
 
 
@@ -45,7 +45,7 @@ async def connect_voice_session(db: AsyncSession, payload: VoiceConnectRequest) 
     )
 
 
-async def submit_voice_event(db: AsyncSession, payload: VoiceEventRequest):
+async def submit_voice_event(db: AsyncSession, payload: VoiceEventRequest) -> VoiceEventResponse:
     voice_session = await get_voice_session(db, payload.voice_session_id)
     if not voice_session:
         raise ValueError("Voice session not found")
@@ -55,23 +55,51 @@ async def submit_voice_event(db: AsyncSession, payload: VoiceEventRequest):
     if not qa_session:
         raise ValueError("QA session not found")
 
+    if payload.event_type in {"partial_transcript", "final_transcript"} and not (payload.transcript or "").strip():
+        raise ValueError("Transcript is required for transcript events")
+
     language = payload.language or qa_session.language
-    result = await submit_transcript(
-        db,
-        qa_session,
-        TranscriptSubmit(transcript=payload.transcript, source="voice", language=language),
-    )
-    await _attach_voice_metadata(
-        db,
-        voice_session.id,
-        qa_session_id=qa_session.id,
-        confidence=payload.confidence,
-        provider_metadata=payload.provider_metadata,
-    )
-    voice_session.status = "active"
+    turn: TranscriptTurn | None = None
+    result = None
+    if payload.event_type == "final_transcript":
+        result = await submit_transcript(
+            db,
+            qa_session,
+            TranscriptSubmit(transcript=payload.transcript or "", source="voice", language=language),
+        )
+        turn = await _attach_voice_metadata(
+            db,
+            voice_session.id,
+            qa_session_id=qa_session.id,
+            confidence=payload.confidence,
+            provider_metadata=_event_metadata(payload),
+        )
+        voice_session.status = "active"
+    elif payload.event_type == "partial_transcript":
+        turn = _build_partial_turn(qa_session=qa_session, payload=payload, language=language)
+        db.add(turn)
+        await db.flush()
+        voice_session.status = "listening"
+    else:
+        voice_session.status = _status_for_event(payload.event_type, payload.agent_state)
+
+    _update_voice_metadata(voice_session, payload=payload, turn_id=turn.id if turn else None, qa_result_id=result.id if result else None)
     await db.commit()
-    await db.refresh(result)
-    return result
+    if result:
+        await db.refresh(result)
+    if turn:
+        await db.refresh(turn)
+    await db.refresh(voice_session)
+    return VoiceEventResponse(
+        voice_session_id=voice_session.id,
+        qa_session_id=qa_session.id,
+        event_type=payload.event_type,
+        accepted=True,
+        turn_id=turn.id if turn else None,
+        qa_result=result,
+        recommended_next_action=_recommended_next_action(payload.event_type, result.escalation_required if result else False),
+        voice_state=_voice_state(voice_session),
+    )
 
 
 async def get_voice_session(db: AsyncSession, voice_session_id: str) -> VoiceSession | None:
@@ -103,7 +131,7 @@ async def _attach_voice_metadata(
     qa_session_id: str,
     confidence: float | None,
     provider_metadata: dict,
-) -> None:
+) -> TranscriptTurn | None:
     result = await db.execute(
         select(TranscriptTurn)
         .where(TranscriptTurn.qa_session_id == qa_session_id)
@@ -117,6 +145,101 @@ async def _attach_voice_metadata(
         turn.voice_session_id = voice_session_id
         turn.confidence = confidence
         turn.provider_metadata = provider_metadata
+    return turn
+
+
+def _build_partial_turn(*, qa_session: QaSession, payload: VoiceEventRequest, language: str) -> TranscriptTurn:
+    return TranscriptTurn(
+        qa_session_id=qa_session.id,
+        voice_session_id=payload.voice_session_id,
+        role=payload.role,
+        source="voice_partial",
+        language=language,
+        content=payload.transcript or "",
+        confidence=payload.confidence,
+        provider_metadata=_event_metadata(payload),
+    )
+
+
+def _event_metadata(payload: VoiceEventRequest) -> dict:
+    metadata = dict(payload.provider_metadata)
+    metadata["event_type"] = payload.event_type
+    if payload.turn_index is not None:
+        metadata["turn_index"] = payload.turn_index
+    if payload.occurred_at is not None:
+        metadata["occurred_at"] = payload.occurred_at.isoformat()
+    if payload.agent_state:
+        metadata["agent_state"] = payload.agent_state
+    if payload.metrics:
+        metadata["metrics"] = payload.metrics
+    return metadata
+
+
+def _update_voice_metadata(
+    voice_session: VoiceSession,
+    *,
+    payload: VoiceEventRequest,
+    turn_id: str | None,
+    qa_result_id: str | None,
+) -> None:
+    metadata = dict(voice_session.metadata_json)
+    metadata["last_event_type"] = payload.event_type
+    metadata["last_turn_id"] = turn_id
+    metadata["last_qa_result_id"] = qa_result_id
+    metadata["event_counts"] = _increment_event_count(metadata.get("event_counts", {}), payload.event_type)
+    if payload.transcript:
+        metadata["last_transcript_excerpt"] = _excerpt(payload.transcript)
+    if payload.agent_state:
+        metadata["agent_state"] = payload.agent_state
+    if payload.metrics:
+        metadata["latest_metrics"] = payload.metrics
+    if payload.event_type == "interruption":
+        metadata["interruption_count"] = int(metadata.get("interruption_count", 0)) + 1
+    voice_session.metadata_json = metadata
+
+
+def _increment_event_count(counts: dict, event_type: str) -> dict[str, int]:
+    normalized = {str(key): int(value) for key, value in counts.items()}
+    normalized[event_type] = normalized.get(event_type, 0) + 1
+    return normalized
+
+
+def _status_for_event(event_type: str, agent_state: str | None) -> str:
+    if event_type == "interruption":
+        return "interrupted"
+    if event_type == "agent_state" and agent_state:
+        return agent_state
+    if event_type == "metrics":
+        return "active"
+    return "active"
+
+
+def _recommended_next_action(event_type: str, escalation_required: bool) -> str:
+    if event_type == "partial_transcript":
+        return "wait_for_final_transcript"
+    if event_type == "interruption":
+        return "pause_agent_speech_and_resume_listening"
+    if event_type == "metrics":
+        return "review_latency_if_needed"
+    if event_type == "agent_state":
+        return "continue_session"
+    if escalation_required:
+        return "review_escalation"
+    return "continue_monitoring"
+
+
+def _voice_state(voice_session: VoiceSession) -> dict:
+    return {
+        "status": voice_session.status,
+        "metadata": voice_session.metadata_json,
+    }
+
+
+def _excerpt(text: str, limit: int = 180) -> str:
+    cleaned = " ".join(text.split())
+    if len(cleaned) <= limit:
+        return cleaned
+    return f"{cleaned[: limit - 3]}..."
 
 
 def _build_token(*, room_name: str, participant_identity: str, qa_session_id: str, voice_session_id: str) -> str:

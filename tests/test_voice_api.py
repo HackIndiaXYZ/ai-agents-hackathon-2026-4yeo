@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from app.db.base import Base
 from app.db.session import get_db_session
 from app.main import create_app
-from app.models.domain import TranscriptTurn
+from app.models.domain import TranscriptTurn, VoiceSession
 
 
 @pytest.fixture()
@@ -76,7 +76,10 @@ async def test_voice_event_routes_transcript_to_qa_workflow(db_context, monkeypa
     )
 
     assert event_response.status_code == 200
-    result = event_response.json()
+    body = event_response.json()
+    result = body["qa_result"]
+    assert body["event_type"] == "final_transcript"
+    assert body["recommended_next_action"] == "review_escalation"
     assert result["violation_label"] == "missed_escalation"
     assert result["escalation_required"] is True
 
@@ -85,7 +88,97 @@ async def test_voice_event_routes_transcript_to_qa_workflow(db_context, monkeypa
         turn = turns.scalar_one()
         assert turn.voice_session_id == voice_session_id
         assert turn.confidence == 0.91
-        assert turn.provider_metadata == {"provider": "test"}
+        assert turn.provider_metadata["provider"] == "test"
+        assert turn.provider_metadata["event_type"] == "final_transcript"
+        voice_session = await session.get(VoiceSession, voice_session_id)
+        assert voice_session.status == "active"
+        assert voice_session.metadata_json["event_counts"]["final_transcript"] == 1
+
+
+@pytest.mark.asyncio
+async def test_partial_voice_event_is_stored_without_qa_scoring(db_context, monkeypatch):
+    client, session_factory = db_context
+    monkeypatch.setenv("LIVEKIT_API_KEY", "devkey")
+    monkeypatch.setenv("LIVEKIT_API_SECRET", "test-secret-with-at-least-32-bytes")
+    connect_response = client.post(
+        "/api/voice/connect",
+        json={"language": "Hinglish", "domain": "fintech_refund", "participant_identity": "reviewer-1"},
+    )
+    voice_session_id = connect_response.json()["voice_session_id"]
+
+    response = client.post(
+        "/api/voice/events",
+        json={
+            "voice_session_id": voice_session_id,
+            "event_type": "partial_transcript",
+            "transcript": "Customer: refund stuck hai",
+            "confidence": 0.72,
+            "turn_index": 1,
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["qa_result"] is None
+    assert body["recommended_next_action"] == "wait_for_final_transcript"
+    assert body["voice_state"]["status"] == "listening"
+
+    async with session_factory() as session:
+        turns = await session.execute(select(TranscriptTurn))
+        turn = turns.scalar_one()
+        assert turn.source == "voice_partial"
+        assert turn.content == "Customer: refund stuck hai"
+        assert turn.provider_metadata["turn_index"] == 1
+
+
+@pytest.mark.asyncio
+async def test_voice_event_tracks_interruption_and_metrics(db_context, monkeypatch):
+    client, session_factory = db_context
+    monkeypatch.setenv("LIVEKIT_API_KEY", "devkey")
+    monkeypatch.setenv("LIVEKIT_API_SECRET", "test-secret-with-at-least-32-bytes")
+    connect_response = client.post(
+        "/api/voice/connect",
+        json={"language": "Hinglish", "domain": "fintech_refund", "participant_identity": "reviewer-1"},
+    )
+    voice_session_id = connect_response.json()["voice_session_id"]
+
+    interruption = client.post(
+        "/api/voice/events",
+        json={"voice_session_id": voice_session_id, "event_type": "interruption", "provider_metadata": {"reason": "barge_in"}},
+    )
+    metrics = client.post(
+        "/api/voice/events",
+        json={
+            "voice_session_id": voice_session_id,
+            "event_type": "metrics",
+            "metrics": {"transcription_delay": 0.18, "total_latency": 0.94},
+        },
+    )
+
+    assert interruption.status_code == 200
+    assert interruption.json()["recommended_next_action"] == "pause_agent_speech_and_resume_listening"
+    assert metrics.status_code == 200
+    assert metrics.json()["voice_state"]["metadata"]["latest_metrics"]["total_latency"] == 0.94
+
+    async with session_factory() as session:
+        voice_session = await session.get(VoiceSession, voice_session_id)
+        assert voice_session.metadata_json["interruption_count"] == 1
+        assert voice_session.metadata_json["event_counts"]["interruption"] == 1
+        assert voice_session.metadata_json["event_counts"]["metrics"] == 1
+
+
+@pytest.mark.asyncio
+async def test_final_voice_event_requires_transcript(db_context, monkeypatch):
+    client, _ = db_context
+    monkeypatch.setenv("LIVEKIT_API_KEY", "devkey")
+    monkeypatch.setenv("LIVEKIT_API_SECRET", "test-secret-with-at-least-32-bytes")
+    connect_response = client.post("/api/voice/connect", json={"language": "Hinglish", "domain": "fintech_refund"})
+    voice_session_id = connect_response.json()["voice_session_id"]
+
+    response = client.post("/api/voice/events", json={"voice_session_id": voice_session_id, "event_type": "final_transcript"})
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Transcript is required for transcript events"
 
 
 @pytest.mark.asyncio
