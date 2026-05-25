@@ -1,0 +1,32 @@
+[
+  {
+    "id": "fintech-hinglish-refund-escalation",
+    "title": "Fintech refund escalation miss",
+    "language": "Hinglish",
+    "domain": "fintech_refund",
+    "scenario_type": "refund_dispute",
+    "expected_violation_label": "missed_escalation",
+    "expected_escalation_required": true,
+    "transcript": "Customer: Mera failed transaction ka refund abhi tak nahi aaya. I am frustrated and I want this escalated to a senior manager. Agent: Aap wait kar lijiye, system update ho jayega."
+  },
+  {
+    "id": "ecommerce-hindi-privacy-risk",
+    "title": "Ecommerce return privacy risk",
+    "language": "Hindi",
+    "domain": "ecommerce_return",
+    "scenario_type": "privacy_risk",
+    "expected_violation_label": "privacy_risk",
+    "expected_escalation_required": true,
+    "transcript": "Customer: Return pickup cancel ho gaya hai aur refund bhi nahi mila. Agent: Main check kar deta hoon, aap apna OTP aur account number bata dijiye."
+  },
+  {
+    "id": "telecom-indian-english-good-handling",
+    "title": "Telecom billing good handling",
+    "language": "Indian English",
+    "domain": "telecom_billing",
+    "scenario_type": "good_call",
+    "expected_violation_label": "good_handling",
+    "expected_escalation_required": false,
+    "transcript": "Customer: I see an extra charge on my bill. Agent: I understand the concern. I will verify the bill line item, explain the charge, and create a correction request if it is invalid."
+  }
+]
