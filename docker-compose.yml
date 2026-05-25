@@ -12,11 +12,40 @@ services:
       LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-secret}
       ADAPTION_API_KEY: ${ADAPTION_API_KEY:-}
       ADAPTION_BASE_URL: ${ADAPTION_BASE_URL:-}
+      LIVEKIT_STT_MODEL: ${LIVEKIT_STT_MODEL:-deepgram/nova-3}
+      LIVEKIT_LLM_MODEL: ${LIVEKIT_LLM_MODEL:-openai/gpt-5.2-chat-latest}
+      LIVEKIT_TTS_MODEL: ${LIVEKIT_TTS_MODEL:-cartesia/sonic-3}
+      LIVEKIT_TTS_VOICE: ${LIVEKIT_TTS_VOICE:-9626c31c-bec5-4cca-baa8-f8ba9e84c8bc}
     ports:
       - "${API_PORT:-8000}:8000"
     depends_on:
       postgres:
         condition: service_healthy
+      livekit:
+        condition: service_started
+
+  voice-worker:
+    build: .
+    image: ${ARGUS_IMAGE:-argus-awaaz:local}
+    command: ["python", "-m", "app.livekit.worker", "start"]
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      ARGUS_API_BASE_URL: ${ARGUS_API_BASE_URL:-http://api:8000/api}
+      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://argus:argus@postgres:5432/argus}
+      LIVEKIT_URL: ${LIVEKIT_URL:-ws://livekit:7880}
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-devkey}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-secret}
+      ADAPTION_API_KEY: ${ADAPTION_API_KEY:-}
+      ADAPTION_BASE_URL: ${ADAPTION_BASE_URL:-}
+      LIVEKIT_STT_MODEL: ${LIVEKIT_STT_MODEL:-deepgram/nova-3}
+      LIVEKIT_LLM_MODEL: ${LIVEKIT_LLM_MODEL:-openai/gpt-5.2-chat-latest}
+      LIVEKIT_TTS_MODEL: ${LIVEKIT_TTS_MODEL:-cartesia/sonic-3}
+      LIVEKIT_TTS_VOICE: ${LIVEKIT_TTS_VOICE:-9626c31c-bec5-4cca-baa8-f8ba9e84c8bc}
+    depends_on:
+      api:
+        condition: service_started
       livekit:
         condition: service_started
 

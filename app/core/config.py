@@ -36,6 +36,7 @@ class LiveKitSettings(BaseModel):
     url_env: str
     api_key_env: str
     api_secret_env: str
+    agent_name: str
     default_url: str
     room_prefix: str
     session_timeout_seconds: int = 900
@@ -74,12 +75,47 @@ class WorkflowSettings(BaseModel):
     violation_labels: list[str] = Field(default_factory=list)
 
 
+class WorkerSettings(BaseModel):
+    api_base_url_env: str
+    default_api_base_url: str
+    stt_model_env: str
+    default_stt_model: str
+    llm_model_env: str
+    default_llm_model: str
+    tts_model_env: str
+    default_tts_model: str
+    tts_voice_env: str
+    default_tts_voice: str
+    instructions: str
+
+    @property
+    def api_base_url(self) -> str:
+        return os.getenv(self.api_base_url_env, self.default_api_base_url)
+
+    @property
+    def stt_model(self) -> str:
+        return os.getenv(self.stt_model_env, self.default_stt_model)
+
+    @property
+    def llm_model(self) -> str:
+        return os.getenv(self.llm_model_env, self.default_llm_model)
+
+    @property
+    def tts_model(self) -> str:
+        return os.getenv(self.tts_model_env, self.default_tts_model)
+
+    @property
+    def tts_voice(self) -> str:
+        return os.getenv(self.tts_voice_env, self.default_tts_voice)
+
+
 class Settings(BaseModel):
     app: AppSettings
     database: DatabaseSettings
     livekit: LiveKitSettings
     adaption: AdaptionSettings
     workflow: WorkflowSettings
+    worker: WorkerSettings
 
 
 def _read_yaml(path: Path) -> dict[str, Any]:
