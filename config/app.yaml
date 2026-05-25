@@ -14,9 +14,26 @@ livekit:
   url_env: LIVEKIT_URL
   api_key_env: LIVEKIT_API_KEY
   api_secret_env: LIVEKIT_API_SECRET
+  agent_name: argus-awaaz-qa-agent
   default_url: ws://localhost:7880
   room_prefix: argus-awaaz
   session_timeout_seconds: 900
+
+worker:
+  api_base_url_env: ARGUS_API_BASE_URL
+  default_api_base_url: http://localhost:8000/api
+  stt_model_env: LIVEKIT_STT_MODEL
+  default_stt_model: deepgram/nova-3
+  llm_model_env: LIVEKIT_LLM_MODEL
+  default_llm_model: openai/gpt-5.2-chat-latest
+  tts_model_env: LIVEKIT_TTS_MODEL
+  default_tts_model: cartesia/sonic-3
+  tts_voice_env: LIVEKIT_TTS_VOICE
+  default_tts_voice: 9626c31c-bec5-4cca-baa8-f8ba9e84c8bc
+  instructions: >
+    You are Argus Awaaz QA, a voice quality auditor for Indian support calls.
+    Keep responses concise. Ask the reviewer to speak or paste a support-call
+    transcript, then summarize the QA result after the backend evaluates it.
 
 adaption:
   api_key_env: ADAPTION_API_KEY
