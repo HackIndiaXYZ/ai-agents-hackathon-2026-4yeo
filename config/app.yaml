@@ -21,7 +21,7 @@ livekit:
 adaption:
   api_key_env: ADAPTION_API_KEY
   base_url_env: ADAPTION_BASE_URL
-  default_base_url: ""
+  default_base_url: https://api.adaptionlabs.ai/api/v1
   export_dir: artifacts/datasets
 
 workflow:
