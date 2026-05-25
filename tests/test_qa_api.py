@@ -173,13 +173,15 @@ async def test_dataset_export_writes_jsonl_csv_and_mapping(client, tmp_path, mon
     assert export_response.status_code == 200
     export_body = export_response.json()
     assert export_body["row_count"] == 1
-    assert export_body["formats"] == ["jsonl", "csv", "mapping"]
-    assert len(export_body["artifacts"]) == 3
+    assert export_body["formats"] == ["jsonl", "csv", "mapping", "hf_card", "kaggle_metadata"]
+    assert len(export_body["artifacts"]) == 5
 
     artifacts = {artifact["artifact_type"]: artifact for artifact in export_body["artifacts"]}
     jsonl_path = tmp_path / _filename(artifacts["jsonl"]["path"])
     csv_path = tmp_path / _filename(artifacts["csv"]["path"])
     mapping_path = tmp_path / _filename(artifacts["mapping"]["path"])
+    hf_card_path = tmp_path / _filename(artifacts["hf_card"]["path"])
+    kaggle_metadata_path = tmp_path / _filename(artifacts["kaggle_metadata"]["path"])
 
     jsonl_rows = [json.loads(line) for line in jsonl_path.read_text(encoding="utf-8").splitlines()]
     assert jsonl_rows[0]["labels"]["violation_label"] == "missed_escalation"
@@ -191,6 +193,14 @@ async def test_dataset_export_writes_jsonl_csv_and_mapping(client, tmp_path, mon
     mapping = json.loads(mapping_path.read_text(encoding="utf-8"))
     assert mapping["columns"]["prompt"] == "prompt"
     assert mapping["columns"]["chat"] == "chat_payload"
+
+    hf_card = hf_card_path.read_text(encoding="utf-8")
+    assert "Adaption Adaptive Data" in hf_card
+    assert "Rows: 1" in hf_card
+
+    kaggle_metadata = json.loads(kaggle_metadata_path.read_text(encoding="utf-8"))
+    assert kaggle_metadata["title"] == "Argus Awaaz Multilingual Support QA"
+    assert "adaptive-data" in kaggle_metadata["keywords"]
 
     rows_response = client.get("/api/datasets/rows")
     assert rows_response.json()[0]["export_status"] == "exported"
