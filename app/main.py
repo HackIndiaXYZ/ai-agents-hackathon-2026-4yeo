@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.adaption import router as adaption_router
+from app.api.analytics import router as analytics_router
 from app.api.datasets import router as datasets_router
 from app.api.health import router as health_router
 from app.api.qa import router as qa_router
@@ -28,6 +29,7 @@ def create_app() -> FastAPI:
     app.include_router(qa_router, prefix=settings.app.api_prefix)
     app.include_router(datasets_router, prefix=settings.app.api_prefix)
     app.include_router(adaption_router, prefix=settings.app.api_prefix)
+    app.include_router(analytics_router, prefix=settings.app.api_prefix)
     return app
 
 
