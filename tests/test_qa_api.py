@@ -1,7 +1,10 @@
 import pytest
+import csv
+import json
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
+from app.core.config import get_settings
 from app.db.base import Base
 from app.db.session import get_db_session
 from app.main import create_app
@@ -140,3 +143,69 @@ async def test_reviewer_correction_requires_existing_result(client):
 
     assert correction_response.status_code == 404
     assert correction_response.json()["detail"] == "QA result not found"
+
+
+@pytest.mark.asyncio
+async def test_dataset_export_writes_jsonl_csv_and_mapping(client, tmp_path, monkeypatch):
+    settings = get_settings()
+    monkeypatch.setattr(settings.adaption, "export_dir", str(tmp_path))
+    create_response = client.post(
+        "/api/qa/sessions",
+        json={"language": "Hinglish", "domain": "fintech_refund", "is_demo": True},
+    )
+    session_id = create_response.json()["id"]
+    client.post(
+        f"/api/qa/sessions/{session_id}/transcript",
+        json={"transcript": "Customer: refund stuck hai, please escalate this complaint.", "source": "transcript"},
+    )
+    client.post(
+        f"/api/qa/sessions/{session_id}/corrections",
+        json={
+            "corrected_score": 60,
+            "corrected_violation_label": "missed_escalation",
+            "corrected_escalation_required": True,
+            "reviewer_note": "Escalation cue was explicit.",
+        },
+    )
+
+    export_response = client.post("/api/datasets/export", json={"format": "all"})
+
+    assert export_response.status_code == 200
+    export_body = export_response.json()
+    assert export_body["row_count"] == 1
+    assert export_body["formats"] == ["jsonl", "csv", "mapping"]
+    assert len(export_body["artifacts"]) == 3
+
+    artifacts = {artifact["artifact_type"]: artifact for artifact in export_body["artifacts"]}
+    jsonl_path = tmp_path / _filename(artifacts["jsonl"]["path"])
+    csv_path = tmp_path / _filename(artifacts["csv"]["path"])
+    mapping_path = tmp_path / _filename(artifacts["mapping"]["path"])
+
+    jsonl_rows = [json.loads(line) for line in jsonl_path.read_text(encoding="utf-8").splitlines()]
+    assert jsonl_rows[0]["labels"]["violation_label"] == "missed_escalation"
+
+    with csv_path.open("r", encoding="utf-8", newline="") as handle:
+        csv_rows = list(csv.DictReader(handle))
+    assert csv_rows[0]["language"] == "Hinglish"
+
+    mapping = json.loads(mapping_path.read_text(encoding="utf-8"))
+    assert mapping["columns"]["prompt"] == "prompt"
+    assert mapping["columns"]["chat"] == "chat_payload"
+
+    rows_response = client.get("/api/datasets/rows")
+    assert rows_response.json()[0]["export_status"] == "exported"
+
+
+@pytest.mark.asyncio
+async def test_dataset_export_rejects_empty_dataset(client, tmp_path, monkeypatch):
+    settings = get_settings()
+    monkeypatch.setattr(settings.adaption, "export_dir", str(tmp_path))
+
+    response = client.post("/api/datasets/export", json={"format": "jsonl"})
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "No dataset rows available for export"
+
+
+def _filename(path: str) -> str:
+    return path.replace("\\", "/").rsplit("/", maxsplit=1)[-1]
